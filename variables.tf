@@ -1,0 +1,75 @@
+variable "disk_encryption_sets" {
+  description = <<EOT
+Map of disk_encryption_sets, attributes below
+Required:
+    - key_vault_key_id
+    - location
+    - name
+    - resource_group_name
+    - identity (block):
+        - identity_ids (optional)
+        - type (required)
+Optional:
+    - auto_key_rotation_enabled
+    - encryption_type
+    - federated_client_id
+    - tags
+EOT
+
+  type = map(object({
+    key_vault_key_id          = string
+    location                  = string
+    name                      = string
+    resource_group_name       = string
+    auto_key_rotation_enabled = optional(bool)
+    encryption_type           = optional(string)
+    federated_client_id       = optional(string)
+    tags                      = optional(map(string))
+    identity = object({
+      identity_ids = optional(set(string))
+      type         = string
+    })
+  }))
+  validation {
+    condition = alltrue([
+      for k, v in var.disk_encryption_sets : (
+        length(v.resource_group_name) <= 90
+      )
+    ])
+    error_message = "[from resourcegroups.ValidateName: invalid when len(value) > 90]"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.disk_encryption_sets : (
+        !endswith(v.resource_group_name, ".")
+      )
+    ])
+    error_message = "[from resourcegroups.ValidateName: must not end with \".\"]"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.disk_encryption_sets : (
+        length(v.resource_group_name) != 0
+      )
+    ])
+    error_message = "[from resourcegroups.ValidateName: invalid when len(value) == 0]"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.disk_encryption_sets : (
+        v.federated_client_id == null || (can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", v.federated_client_id)))
+      )
+    ])
+    error_message = "must be a valid UUID"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.disk_encryption_sets : (
+        v.tags == null || (length(v.tags) <= 50)
+      )
+    ])
+    error_message = "[from tags.Validate: invalid when len(value) > 50]"
+  }
+  # Note: 13 additional provider-side validators are enforced at apply time but not mirrored as validation{} blocks here (bespoke or non-mechanically-translatable).
+}
+
